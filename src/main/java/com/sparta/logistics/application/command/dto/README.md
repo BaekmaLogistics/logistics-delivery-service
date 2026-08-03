@@ -1,0 +1,1 @@
+데이터 전달을 위한 Request/Response 객체 관리

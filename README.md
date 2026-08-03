@@ -1,57 +1,54 @@
-# Logistics Service Template
+# Delivery Service
 
-스파르타 물류 시스템(Sparta Logistics System) 마이크로서비스 작성을 위한 공통 Spring Boot 템플릿 레포지토리입니다.
+스파르타 물류 시스템(Sparta Logistics System)의 **배송(Delivery) 도메인** 마이크로서비스입니다.
+
+배송/배송경로기록 관리, 배송담당자(허브담당자/업체담당자) 라운드로빈 배정, 배송 상태 추적을 담당합니다.
 
 ---
 
-## 🛠 주요 기술 스택 & 포함된 설정
+## 🛠 주요 기술 스택
 - **Java**: 17
 - **Framework**: Spring Boot 3.5.14
-- **Database**: PostgreSQL (Spring Data JPA)
+- **Database**: PostgreSQL (Spring Data JPA, QueryDSL)
+- **Cache**: Redis
+- **Messaging**: RabbitMQ
+- **Service Discovery / 통신**: Eureka, OpenFeign
+- **Tracing**: Zipkin / Micrometer
 - **API Docs**: Springdoc OpenAPI (Swagger UI)
 - **Testing**: JUnit 5, Testcontainers
 
 ---
 
-## 📁 프로젝트 패키지 구조
+## 📁 프로젝트 패키지 구조 (CQRS)
 ```text
 src/main/java/com/sparta/logistics
-├── application/       # 비즈니스 유스케이스 / 서비스 로직
-├── domain/            # 도메인 엔티티, 리포지토리 인터페이스
-├── infrastructure/    # DB, 외부 API 연동 구현체
-└── presentation/      # Controller, DTO 및 공통 예외/응답 처리
-    └── common/
-        ├── dto/       # 공통 응답 포맷 (GeneralResponse, ErrorResponse 등)
-        └── exception/ # 공통 예외 핸들러 (GlobalExceptionHandler, ApiException)
+├── application/
+│   ├── command/        # 생성/수정/삭제 유스케이스
+│   └── query/           # 조회/검색/통계 유스케이스
+├── domain/
+│   ├── entity/          # JPA 엔티티 (Delivery, DeliveryRoute)
+│   ├── model/           # 순수 도메인 모델 (DeliveryStatus, RouteStatus 등)
+│   └── repository/      # Repository 인터페이스
+├── infrastructure/
+│   ├── cache/            # Redis 설정
+│   ├── feign/            # Hub, User&Auth FeignClient
+│   ├── messaging/        # RabbitMQ 설정/이벤트 발행
+│   └── persistence/
+│       ├── command/      # 쓰기용 Repository 구현
+│       ├── query/        # QueryDSL 기반 조회 Repository 구현
+│       └── jpa/           # BaseEntity, JpaAuditingConfig 등 공통 JPA 설정
+└── presentation/
+    ├── command/controller/  # POST/PATCH/DELETE 컨트롤러
+    ├── query/controller/    # GET 컨트롤러
+    └── common/               # 공통 응답 포맷, 예외 처리
 ```
 
 ---
 
-## ⚙️ 서비스 복사 후 설정 변경 가이드 (필수)
-
-새로운 마이크로서비스 생성 시 아래 파일들의 서비스/아티팩트 명칭을 각 서비스에 맞춰 수정해 주세요.
-
-### 1. `build.gradle`
-- `description`: 서비스 설명/이름 수정 (예: `description = 'user-service'`)
-- (필요시) `group` 설정 수정
-
-### 2. `settings.gradle`
-- `rootProject.name`: 프로젝트/아티팩트 이름 수정 (예: `rootProject.name = 'user-service'`)
-
-### 3. `src/main/resources/application.yml`
-- `spring.application.name`: 각 서비스의 애플리케이션 이름으로 수정 (예: `spring.application.name: user-service`)
-- `spring.datasource`: 데이터베이스 접속 환경 변수 설정 (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`)
-
-### 4. 에러 코드 (`ErrorResponseCode.java`) 컨벤션 적용
-- `src/main/java/com/sparta/logistics/presentation/common/dto/response/ErrorResponseCode.java`
-- 각 서비스에서 발생하는 예외를 구분하기 위해 서비스 접두사(Prefix) 형태의 에러 코드를 추가 정의합니다.
-  - 예시:
-    - 공통: `COMMON_0001` (서버 오류), `COMMON_0002` (잘못된 요청)
-    - 회원 서비스: `USER_0001` (사용자 없음), `USER_0002` (중복된 이메일)
-    - 허브 서비스: `HUB_0001` (허브 미존재)
-
-### 5. 패키지 및 메인 클래스 (선택)
-- 기본 패키지(`com.sparta.logistics`) 및 메인 실행 클래스(`LogisticsApplication.java`)를 서비스 역할에 맞게 변경/리팩토링하여 사용합니다.
+## ⚙️ 서비스 설정
+- `spring.application.name`: `delivery-service`
+- `server.port`: `8083` (팀 컨벤션)
+- 에러 코드 Prefix: `DELIVERY_XXXX` (`ErrorResponseCode.java` 참고)
 
 ---
 
@@ -64,5 +61,5 @@ src/main/java/com/sparta/logistics
 
 ### Swagger API 문서
 애플리케이션 실행 후 접속 URL:
-- **Swagger UI**: `http://localhost:8080/api/api-docs`
-- **OpenAPI Spec**: `http://localhost:8080/api/api-spec`
+- **Swagger UI**: `http://localhost:8083/api/api-docs`
+- **OpenAPI Spec**: `http://localhost:8083/api/api-spec`

@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GeneralResponse<T>(
-        int status,
         String message,
         T data
 ) {
@@ -15,6 +14,6 @@ public record GeneralResponse<T>(
     }
 
     private static <T> GeneralResponse<T> fromData(ApiResponseCode responseCode, T data) {
-        return new GeneralResponse<>(responseCode.getStatus().value(), responseCode.getMessage(), data);
+        return new GeneralResponse<>(responseCode.getMessage(), data);
     }
 }

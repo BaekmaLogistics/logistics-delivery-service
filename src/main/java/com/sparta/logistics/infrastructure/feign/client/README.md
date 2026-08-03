@@ -1,0 +1,1 @@
+feign client interface 파일
