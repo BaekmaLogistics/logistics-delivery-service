@@ -17,7 +17,8 @@ public enum ErrorResponseCode implements ApiResponseCode {
     ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DELIVERY_0002", "배송경로를 찾을 수 없습니다."),
     INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "DELIVERY_0003", "유효하지 않은 상태 전이 요청입니다."),
     NO_AVAILABLE_DRIVER(HttpStatus.CONFLICT, "DELIVERY_0004", "배정 가능한 배송담당자가 없습니다."),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "DELIVERY_0005", "해당 요청에 대한 권한이 없습니다.");
+    FORBIDDEN(HttpStatus.FORBIDDEN, "DELIVERY_0005", "해당 요청에 대한 권한이 없습니다."),
+    HUB_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DELIVERY_0006", "허브 간 이동 정보를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String errorCode;
