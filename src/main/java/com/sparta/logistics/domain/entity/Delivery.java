@@ -22,7 +22,7 @@ import java.util.UUID;
  * 배송경로기록(DeliveryRoute)을 자식으로 가진다 - 배송 생성 시 전체 구간이 한 번에 생성됨.
  */
 @Entity
-@Table(name = "p_delivery")
+@Table(name = "p_deliveries")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA만 사용
 public class Delivery extends BaseUpdatableEntity {

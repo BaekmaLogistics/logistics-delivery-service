@@ -23,7 +23,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(
-        name = "p_delivery_route",
+        name = "p_delivery_routes",
         uniqueConstraints = @UniqueConstraint(columnNames = {"delivery_id", "sequence"})
         // 같은 배송 안에서 같은 순번(sequence)이 두 번 나오면 안 됨.
 )
