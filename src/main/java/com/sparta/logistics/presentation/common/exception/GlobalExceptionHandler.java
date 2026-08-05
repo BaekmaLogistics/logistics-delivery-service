@@ -1,9 +1,10 @@
 package com.sparta.logistics.presentation.common.exception;
 
 
+import com.sparta.logistics.common.exception.ApiException;
 import com.sparta.logistics.infrastructure.feign.exception.FeignApiException;
 import com.sparta.logistics.presentation.common.dto.response.ErrorResponse;
-import com.sparta.logistics.presentation.common.dto.response.ErrorResponseCode;
+import com.sparta.logistics.common.code.ErrorResponseCode;
 import feign.RetryableException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

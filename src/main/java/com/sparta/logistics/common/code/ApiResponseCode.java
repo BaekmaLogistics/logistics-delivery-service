@@ -1,4 +1,4 @@
-package com.sparta.logistics.presentation.common.dto.response;
+package com.sparta.logistics.common.code;
 
 import org.springframework.http.HttpStatus;
 

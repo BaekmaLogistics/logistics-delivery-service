@@ -1,6 +1,6 @@
-package com.sparta.logistics.presentation.common.exception;
+package com.sparta.logistics.common.exception;
 
-import com.sparta.logistics.presentation.common.dto.response.ErrorResponseCode;
+import com.sparta.logistics.common.code.ErrorResponseCode;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 

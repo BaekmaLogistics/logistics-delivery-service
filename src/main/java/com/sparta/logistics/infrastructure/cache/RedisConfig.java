@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
@@ -72,22 +73,41 @@ public class RedisConfig {
      *   RedisTemplate<String, Object>처럼 값 타입이 Object로 선언된 경우에도
      *   역직렬화 시 원래 클래스로 정확히 복원되도록 함
      */
-    @Bean
-    public ObjectMapper redisObjectMapper() {
+//    @Bean("redisObjectMapper")
+//    public ObjectMapper redisObjectMapper() {
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        objectMapper.registerModule(new JavaTimeModule());
+//        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//
+//        // 우리 프로젝트 패키지(com.sparta.logistics)에 속한 클래스만 역직렬화 허용
+//        PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+//                .allowIfSubType("com.sparta.logistics")
+//                .allowIfSubType("java.util")   // HashMap, ArrayList 등 표준 컬렉션 타입 허용
+//                .build();
+//
+//        objectMapper.activateDefaultTyping(
+//                ptv,
+//                ObjectMapper.DefaultTyping.NON_FINAL
+//        );
+//        return objectMapper;
+//    }
+
+    private ObjectMapper createRedisObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
+
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // 우리 프로젝트 패키지(com.sparta.logistics)에 속한 클래스만 역직렬화 허용
         PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
                 .allowIfSubType("com.sparta.logistics")
-                .allowIfSubType("java.util")   // HashMap, ArrayList 등 표준 컬렉션 타입 허용
+                .allowIfSubType("java.util")
                 .build();
 
         objectMapper.activateDefaultTyping(
                 ptv,
                 ObjectMapper.DefaultTyping.NON_FINAL
         );
+
         return objectMapper;
     }
 
@@ -99,7 +119,10 @@ public class RedisConfig {
      * - computePrefixWith: 실제 Redis key = "{serviceName}::{cacheName}::{key값}" 형태로 저장됨.
      */
     @Bean
-    public CacheManager cacheManager(RedisConnectionFactory cf, ObjectMapper redisObjectMapper) {
+    public CacheManager cacheManager(RedisConnectionFactory cf) {
+
+        ObjectMapper redisObjectMapper = createRedisObjectMapper();
+
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration
                 // 기본설정에서 시작
                 .defaultCacheConfig()
@@ -125,7 +148,9 @@ public class RedisConfig {
      * key/value 모두 String/JSON으로 직렬화
      */
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory cf, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory cf) {
+        ObjectMapper redisObjectMapper = createRedisObjectMapper();
+
         RedisTemplate<String, Object> template = new RedisTemplate<>();
 
         // 연결 정보 주입
