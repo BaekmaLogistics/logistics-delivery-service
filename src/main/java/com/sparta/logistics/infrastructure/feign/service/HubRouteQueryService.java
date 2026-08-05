@@ -2,8 +2,8 @@ package com.sparta.logistics.infrastructure.feign.service;
 
 import com.sparta.logistics.infrastructure.feign.client.HubFeignClient;
 import com.sparta.logistics.infrastructure.feign.dto.HubRoutePageResponse;
-import com.sparta.logistics.presentation.common.dto.response.ErrorResponseCode;
-import com.sparta.logistics.presentation.common.exception.ApiException;
+import com.sparta.logistics.common.code.ErrorResponseCode;
+import com.sparta.logistics.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;

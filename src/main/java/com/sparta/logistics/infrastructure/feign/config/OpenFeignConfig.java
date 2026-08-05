@@ -1,4 +1,4 @@
-package com.sparta.logistics.infrastructure.config;
+package com.sparta.logistics.infrastructure.feign.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sparta.logistics.infrastructure.feign.decoder.FeignErrorDecoder;
