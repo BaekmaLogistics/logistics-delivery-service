@@ -23,8 +23,8 @@ public interface HubFeignClient {
      */
     @GetMapping("/api/v1/hub-routes/shortest")
     GeneralResponse<HubShortestRouteResponse> getShortestRoute(
-            @RequestParam UUID fromHubId,
-            @RequestParam UUID toHubId
+            @RequestParam("fromHubId") UUID fromHubId,
+            @RequestParam("toHubId") UUID toHubId
     );
 
     /**
@@ -32,7 +32,7 @@ public interface HubFeignClient {
      */
     @GetMapping("/api/v1/hub-routes")
     GeneralResponse<HubRoutePageResponse> getHubRoutes(
-            @RequestParam UUID fromHubId,
-            @RequestParam UUID toHubId
+            @RequestParam("fromHubId") UUID fromHubId,
+            @RequestParam("toHubId") UUID toHubId
     );
 }

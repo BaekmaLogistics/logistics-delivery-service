@@ -72,6 +72,12 @@ public class DeliveryCommandService implements CreateDeliveryUseCase {
         HubShortestRouteResponse shortestRoute =
                 hubFeignClient.getShortestRoute(departureHubId, destinationHubId).data();
 
+        // Hub 응답을 신뢰하지 않고 그대로 검증한다.
+        // - data/routes가 null이거나 구간을 못 만들 만큼(0~1개) waypoint가 적으면
+        //   기존 코드는 조용히 빈 route 목록을 만들어 저장까지 성공해버렸음(데이터 정합성 문제).
+        // - Hub가 요청한 출발/도착 허브와 다른 경로를 내려주는 경우도 검증한다.
+        validateShortestRoute(shortestRoute, departureHubId, destinationHubId);
+
         List<HubShortestRouteResponse.HubWaypoint> waypoints = shortestRoute.routes();
 
         // 허브가 3개(서울, 대전, 부산)면 구간은 2개(서울→대전, 대전→부산).
@@ -104,6 +110,49 @@ public class DeliveryCommandService implements CreateDeliveryUseCase {
                 })
                 // 스트림을 최종적으로 List<DeliveryRoute>로 모음.
                 .toList();
+    }
+
+    /**
+     * Hub 서비스의 "최단 경로 조회" 응답이 실제로 신뢰할 수 있는 데이터인지 검증한다.
+     * - data 자체가 없거나(요청 실패), 경유 허브 목록이 없거나, 구간을 하나도 못 만들 만큼
+     *   (0~1개) waypoint가 적으면 즉시 예외로 중단한다. (검증 없이는 route 0개인 Delivery가 조용히 저장됨)
+     * - waypoint 중 hubId가 비어있거나, 첫/마지막 허브가 요청한 출발/도착 허브와 다르면
+     *   Hub가 엉뚱한 경로를 내려준 것이므로 마찬가지로 중단한다.
+     */
+    private void validateShortestRoute(
+            HubShortestRouteResponse shortestRoute,
+            UUID departureHubId,
+            UUID destinationHubId
+    ) {
+        // 필드 자체가 비어있거나, routes 필드(경유 허브 목록)가 null이거나, 경유 허브가 0개나 1개인 경우
+        // 예외처리
+        // 참고 : 순서대로 작성해야 첫번째 조건에서 .routes()가 실행되지 않아 NPE가 나지않음
+        if (shortestRoute == null
+                || shortestRoute.routes() == null
+                || shortestRoute.routes().size() < 2) {
+            throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);
+        }
+
+        // waypoints가 최소 2개는 있음
+        List<HubShortestRouteResponse.HubWaypoint> waypoints = shortestRoute.routes();
+
+        // hubId가 null인 waypoint가 하나라도 있는지 검사
+        boolean hasInvalidHubId = waypoints.stream()
+                .anyMatch(waypoint -> waypoint.hubId() == null);
+
+        // 각각 "실제 출발 허브"와 "실제 도착 허브"
+        UUID firstHubId = waypoints.get(0).hubId();
+        UUID lastHubId = waypoints.get(waypoints.size() - 1).hubId();
+
+        // hubId 없는 waypoint가 섞여있거나,
+        // 우리가 물어본 출발 허브랑, Hub가 준 경로의 첫 허브가 다르거나,
+        // 우리가 물어본 도착 허브랑, Hub가 준 경로의 끝 허브가 다른 경우
+        // 예외처리
+        if (hasInvalidHubId
+                || !departureHubId.equals(firstHubId)
+                || !destinationHubId.equals(lastHubId)) {
+            throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);
+        }
     }
 
     /**

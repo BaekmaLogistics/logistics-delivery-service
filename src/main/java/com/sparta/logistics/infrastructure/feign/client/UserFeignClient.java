@@ -20,7 +20,7 @@ public interface UserFeignClient {
      */
     @GetMapping("/api/v1/delivery-managers")
     GeneralResponse<DeliveryManagerPageResponse> getDeliveryManagers(
-            @RequestParam String deliveryType,
-            @RequestParam UUID hubId
+            @RequestParam("deliveryType") String deliveryType,
+            @RequestParam("hubId") UUID hubId
     );
 }
