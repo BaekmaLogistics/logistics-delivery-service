@@ -13,8 +13,8 @@ import com.sparta.logistics.infrastructure.feign.dto.DeliveryManagerPageResponse
 import com.sparta.logistics.infrastructure.feign.dto.HubRoutePageResponse;
 import com.sparta.logistics.infrastructure.feign.dto.HubShortestRouteResponse;
 import com.sparta.logistics.infrastructure.feign.service.HubRouteQueryService;
-import com.sparta.logistics.presentation.common.dto.response.ErrorResponseCode;
-import com.sparta.logistics.presentation.common.exception.ApiException;
+import com.sparta.logistics.common.code.ErrorResponseCode;
+import com.sparta.logistics.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
