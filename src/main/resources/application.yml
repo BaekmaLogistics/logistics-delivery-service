@@ -71,6 +71,7 @@ springdoc:
   swagger-ui:
     path: /api/api-docs
     enabled: true
+    url: /api/api-spec
   override-with-generic-response: false
   use-fqn: true
 
