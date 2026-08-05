@@ -53,6 +53,7 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
             UUID currentUserId,
             UserRole role
     ) {
+        validatePage(page);
         validatePageSize(size);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -76,6 +77,15 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
 
         if (forbidden) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+    }
+
+    // page가 음수면 PageRequest.of()가 IllegalArgumentException을 던지고,
+    // 그게 GlobalExceptionHandler의 Exception 핸들러(500)로 잡혀버린다.
+    // 클라이언트 잘못이니 여기서 미리 걸러서 400(INVALID_REQUEST)으로 응답한다.
+    private void validatePage(int page) {
+        if (page < 0) {
+            throw new ApiException(ErrorResponseCode.INVALID_REQUEST, "page는 0 이상이어야 합니다.");
         }
     }
 
