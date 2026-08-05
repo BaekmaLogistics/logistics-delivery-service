@@ -1,7 +1,53 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
 language: ko-KR
 
+tone_instructions: >
+  핵심 문제만 간결하게 설명하세요.
+  문제의 근거와 실제 발생 가능한 영향을 함께 제시하세요.
+
 reviews:
+  profile: chill
+
+  request_changes_workflow: false
+  high_level_summary: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  poem: false
+  review_details: false
+
   auto_review:
     enabled: true
     base_branches:
       - "dev"
+
+  path_filters:
+    - "!**/.idea/**"
+    - "!**/build/**"
+    - "!**/generated/**"
+    - "!**/*.md"
+
+  path_instructions:
+    - path: "src/main/java/**/*.java"
+      instructions: |
+        실제 장애나 잘못된 동작으로 이어질 가능성이 높은 문제만 리뷰하세요.
+
+        다음 항목을 우선적으로 확인하세요.
+        - 런타임 오류 및 명확한 논리 오류
+        - 트랜잭션 및 데이터 정합성 문제
+        - 동시성 문제
+        - 중요한 예외 처리 누락
+        - 보안 취약점
+        - API 계약 불일치
+        - 실제 운영에 영향을 주는 성능 문제
+        - 명백하게 잘못된 계층 간 의존성 및 도메인 책임
+
+        코멘트는 실제 실패 시나리오와 근거를 제시할 수 있는 경우에만 작성하세요.
+        영향도가 높은 문제를 우선하고, 선택적인 리팩터링이나 스타일 제안은 생략하세요.
+        개발자의 의도가 불명확하면 오류라고 단정하지 말고 질문 형식으로 작성하세요.
+        리뷰 코멘트 수를 최소화하세요.
+
+    - path: "src/test/**/*.java"
+      instructions: |
+        핵심 비즈니스 로직, 예외 상황, 경계값에 관한 중요한 테스트 누락만 리뷰하세요.
+        실제 결함을 방지하는 데 도움이 되는 테스트를 우선적으로 제안하세요.
