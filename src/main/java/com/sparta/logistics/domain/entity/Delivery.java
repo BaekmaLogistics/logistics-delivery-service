@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -58,6 +59,7 @@ public class Delivery extends BaseUpdatableEntity {
     // Delivery 엔티티에 대해 저장(persist)/삭제(remove) 등의 작업이 일어나면, routes에 들어있는 DeliveryRoute들한테도 똑같은 작업이 전파
     // routes 리스트에서 특정 route 객체를 빼버리면(routes.remove(...)), 그 route는 DB에서도 자동으로 DELETE
     @OneToMany(mappedBy = "delivery", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sequence ASC") // 구간 목록/상세 조회 시 항상 순번(sequence) 순으로 내려가도록 보장
     private final List<DeliveryRoute> routes = new ArrayList<>();
 
     // private 생성자
