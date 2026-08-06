@@ -65,15 +65,11 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
 
     /**
      * 상세 조회 시 역할별 접근 권한을 확인한다.
-     * - DELIVERY_DRIVER : 본인이 전체 배송 담당(companyDriverId)도 아니고, 소속 구간(route) 중
-     *   담당(driverId)인 것도 하나 없으면 FORBIDDEN
+     * - DELIVERY_DRIVER : 본인이 담당(Delivery.isAssignedTo)이 아니면 FORBIDDEN
      * - MASTER/HUB_MANAGER(임시)/COMPANY_MANAGER(임시) : 제한 없음
      */
     private void validateAccess(Delivery delivery, UUID currentUserId, UserRole role) {
-        boolean forbidden = role == UserRole.DELIVERY_DRIVER
-                && !delivery.getCompanyDriverId().equals(currentUserId)
-                && delivery.getRoutes().stream()
-                        .noneMatch(route -> route.getDriverId().equals(currentUserId));
+        boolean forbidden = role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId);
 
         if (forbidden) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);

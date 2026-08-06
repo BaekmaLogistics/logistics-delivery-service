@@ -2,9 +2,13 @@ package com.sparta.logistics.application.command.service;
 
 import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
+import com.sparta.logistics.application.command.dto.UpdateDeliveryStatusRequest;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
+import com.sparta.logistics.application.command.usecase.UpdateDeliveryStatusUseCase;
+import com.sparta.logistics.common.constant.UserRole;
 import com.sparta.logistics.domain.entity.Delivery;
 import com.sparta.logistics.domain.entity.DeliveryRoute;
+import com.sparta.logistics.domain.model.DeliveryStatus;
 import com.sparta.logistics.domain.repository.DeliveryRepository;
 import com.sparta.logistics.infrastructure.feign.client.HubFeignClient;
 import com.sparta.logistics.infrastructure.feign.client.UserFeignClient;
@@ -27,7 +31,7 @@ import java.util.stream.IntStream;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class DeliveryCommandService implements CreateDeliveryUseCase {
+public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeliveryStatusUseCase {
 
     private final DeliveryRepository deliveryRepository;
     private final HubFeignClient hubFeignClient;
@@ -61,6 +65,54 @@ public class DeliveryCommandService implements CreateDeliveryUseCase {
 
         // 저장된(ID 채워진) 엔티티를 응답 DTO로 변환
         return DeliveryResponse.from(savedDelivery);
+    }
+
+    /**
+     * 배송 상태를 다음 단계로 전이한다.
+     * - 권한 : COMPANY_MANAGER는 아예 불가(FORBIDDEN). DELIVERY_DRIVER는 본인 담당(Delivery.isAssignedTo)
+     *   건이 아니면 FORBIDDEN. MASTER/HUB_MANAGER(임시 무제한, TODO: 담당 허브로 제한)는 통과.
+     * - 상태 전이 : 현재 상태의 "바로 다음" 상태만 허용(enum ordinal 기준). 건너뛰거나 역행하면
+     *   INVALID_STATUS_TRANSITION. DELIVERED(마지막 상태)에서는 그 다음이 없으므로 항상 거부된다.
+     */
+    @Override
+    public DeliveryResponse updateStatus(
+            UUID deliveryId,
+            UpdateDeliveryStatusRequest request,
+            UUID currentUserId,
+            UserRole role
+    ) {
+        // id로 배송 조회(삭제된 건 자동 제외)
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        // 권한 체크
+        validateStatusUpdateAccess(delivery, currentUserId, role);
+        // 상태 전이가 유효한지 체크
+        validateStatusTransition(delivery.getStatus(), request.status());
+
+        delivery.changeStatus(request.status());
+
+        // 트랜잭션 안에서 영속 상태인 엔티티라 save() 호출 없이도 커밋 시 변경분이 반영된다(더티체킹).
+        return DeliveryResponse.from(delivery);
+    }
+
+    // 권한 체크
+    private void validateStatusUpdateAccess(Delivery delivery, UUID currentUserId, UserRole role) {
+        if (role == UserRole.COMPANY_MANAGER) {
+            // 배송 "수정"은 업체 담당자는 아예 불가 (X)
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+
+        if (role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId)) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+    }
+
+    // 상태 전이 체크
+    private void validateStatusTransition(DeliveryStatus current, DeliveryStatus next) {
+        if (next.ordinal() != current.ordinal() + 1) {
+            throw new ApiException(ErrorResponseCode.INVALID_STATUS_TRANSITION);
+        }
     }
 
     /**

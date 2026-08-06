@@ -111,4 +111,14 @@ public class Delivery extends BaseUpdatableEntity {
     public void changeStatus(DeliveryStatus newStatus) {
         this.status = newStatus;
     }
+
+    /**
+     * 이 배송에 대해 userId가 "담당자"인지 확인한다.
+     * 전체 담당(companyDriverId)이거나, 소속 구간(route) 중 하나라도 담당(driverId)이면 true.
+     * DELIVERY_DRIVER 권한 체크에서 조회/상태변경 양쪽에서 공통으로 쓰인다.
+     */
+    public boolean isAssignedTo(UUID userId) {
+        return companyDriverId.equals(userId)
+                || routes.stream().anyMatch(route -> route.getDriverId().equals(userId));
+    }
 }
