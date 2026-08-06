@@ -4,6 +4,7 @@ import com.sparta.logistics.application.query.dto.DeliveryDetailResponse;
 import com.sparta.logistics.application.query.dto.DeliveryPageResponse;
 import com.sparta.logistics.common.constant.UserRole;
 import com.sparta.logistics.domain.model.DeliveryStatus;
+import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
@@ -20,8 +21,7 @@ public interface DeliveryQueryUseCase {
     DeliveryPageResponse getDeliveries(
             DeliveryStatus status,
             UUID hubId,
-            int page,
-            int size,
+            Pageable pageable,
             UUID currentUserId,
             UserRole role
     );
