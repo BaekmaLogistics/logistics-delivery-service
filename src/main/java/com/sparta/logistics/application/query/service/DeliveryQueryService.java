@@ -25,9 +25,14 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DeliveryQueryService implements DeliveryQueryUseCase {
 
-    // 템플릿 쪽 PageSizeLimitArgumentResolver가 아직 빈 스텁이라, size 검증을 우리가 직접 한다.
-    // (나중에 그쪽이 실제로 구현되면 이 검증은 제거하고 그걸 갖다 쓰면 됨)
+    // 템플릿에 PageSizeLimitArgumentResolver가 구현됐지만, 그건 컨트롤러 파라미터가 Pageable 타입일 때만
+    // 동작해서 지금처럼 page/size를 int로 따로 받는 우리 컨트롤러에는 적용이 안 된다.
+    // 게다가 그 리졸버가 위임하는 Spring 기본 Pageable 파싱은 음수 page를 조용히 0으로 보정해버려서,
+    // 우리가 원하는 "음수 page는 400" 동작(CodeRabbit 지적 반영분)이랑 안 맞는다.
+    // 그래서 컨트롤러 시그니처는 그대로 두고, size 쪽만 스펙 문구
+    // ("10,30,50 이외의 건수는 제한하여 기본 10건씩으로 고정") 그대로 조용히 보정하도록 맞춘다.
     private static final Set<Integer> ALLOWED_PAGE_SIZES = Set.of(10, 30, 50);
+    private static final int DEFAULT_PAGE_SIZE = 10;
 
     private final DeliveryRepository deliveryRepository;
 
@@ -54,9 +59,9 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
             UserRole role
     ) {
         validatePage(page);
-        validatePageSize(size);
+        int normalizedSize = normalizePageSize(size);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, normalizedSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Delivery> result = deliveryRepository.search(status, hubId, currentUserId, role, pageable);
 
@@ -85,10 +90,8 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
         }
     }
 
-    // size가 10/30/50인지 체크
-    private void validatePageSize(int size) {
-        if (!ALLOWED_PAGE_SIZES.contains(size)) {
-            throw new ApiException(ErrorResponseCode.INVALID_REQUEST, "size는 10, 30, 50 중 하나여야 합니다.");
-        }
+    // size가 10/30/50이 아니면 에러 대신 스펙대로 기본값(10)으로 조용히 보정
+    private int normalizePageSize(int size) {
+        return ALLOWED_PAGE_SIZES.contains(size) ? size : DEFAULT_PAGE_SIZE;
     }
 }
