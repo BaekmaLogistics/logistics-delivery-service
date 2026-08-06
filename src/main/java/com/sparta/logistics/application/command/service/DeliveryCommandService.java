@@ -3,12 +3,16 @@ package com.sparta.logistics.application.command.service;
 import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
 import com.sparta.logistics.application.command.dto.UpdateDeliveryStatusRequest;
+import com.sparta.logistics.application.command.dto.UpdateRouteStatusRequest;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.UpdateDeliveryStatusUseCase;
+import com.sparta.logistics.application.command.usecase.UpdateRouteStatusUseCase;
+import com.sparta.logistics.application.query.dto.RouteResponse;
 import com.sparta.logistics.common.constant.UserRole;
 import com.sparta.logistics.domain.entity.Delivery;
 import com.sparta.logistics.domain.entity.DeliveryRoute;
 import com.sparta.logistics.domain.model.DeliveryStatus;
+import com.sparta.logistics.domain.model.RouteStatus;
 import com.sparta.logistics.domain.repository.DeliveryRepository;
 import com.sparta.logistics.infrastructure.feign.client.HubFeignClient;
 import com.sparta.logistics.infrastructure.feign.client.UserFeignClient;
@@ -31,7 +35,7 @@ import java.util.stream.IntStream;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeliveryStatusUseCase {
+public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeliveryStatusUseCase, UpdateRouteStatusUseCase {
 
     private final DeliveryRepository deliveryRepository;
     private final HubFeignClient hubFeignClient;
@@ -112,6 +116,88 @@ public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeli
     private void validateStatusTransition(DeliveryStatus current, DeliveryStatus next) {
         if (next.ordinal() != current.ordinal() + 1) {
             throw new ApiException(ErrorResponseCode.INVALID_STATUS_TRANSITION);
+        }
+    }
+
+    /**
+     * 배송 구간(route) 상태를 다음 단계로 전이한다.
+     * - 권한 : COMPANY_MANAGER는 아예 불가(FORBIDDEN). DELIVERY_DRIVER는 이 "구간"의 담당자
+     *   (route.driverId)가 본인이 아니면 FORBIDDEN. 배송 전체 담당(companyDriverId)이어도
+     *   그 사람이 이 구간(허브 간 이동)까지 담당하는 건 아니므로, Issue #7의 isAssignedTo()
+     *   (전체 배송 기준)와 달리 여기서는 route.driverId만 본다. MASTER/HUB_MANAGER(임시 무제한)는 통과.
+     * - 상태 전이 : 현재 상태의 "바로 다음" 상태만 허용(enum ordinal 기준).
+     * - ROUTE_ARRIVED로 전이할 때는 실제 거리/소요시간이 같이 와야 하고, DeliveryRoute.completeRoute()로 기록.
+     *   그 외 상태는 DeliveryRoute.changeStatus()만 호출.
+     */
+    @Override
+    public RouteResponse updateRouteStatus(
+            UUID deliveryId,
+            UUID routeId,
+            UpdateRouteStatusRequest request,
+            UUID currentUserId,
+            UserRole role
+    ) {
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        // 배송을 통째로 조회(routes 포함), 그 안에서 routeId가 일치하는 구간을 찾음
+        DeliveryRoute route = delivery.getRoutes().stream()
+                .filter(r -> r.getId().equals(routeId) && r.getDeletedAt() == null)
+                .findFirst()
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.ROUTE_NOT_FOUND));
+
+        // 권한 체크
+        validateRouteStatusUpdateAccess(route, currentUserId, role);
+
+        // 상태 전이 순서 체크
+        validateRouteStatusTransition(route.getStatus(), request.status());
+
+        // ROUTE_ARRIVED면 실거리/실시간 필수 체크 후 completeRoute()
+        // 아니면 그냥 changeStatus()
+        if (request.status() == RouteStatus.ROUTE_ARRIVED) {
+            validateCompleteRouteInput(request);
+            route.completeRoute(request.actualDistance(), request.actualDuration());
+        } else {
+            route.changeStatus(request.status());
+        }
+
+        return RouteResponse.from(route);
+    }
+
+    // 권한 체크
+    private void validateRouteStatusUpdateAccess(DeliveryRoute route, UUID currentUserId, UserRole role) {
+        if (role == UserRole.COMPANY_MANAGER) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+
+        if (role == UserRole.DELIVERY_DRIVER && !route.getDriverId().equals(currentUserId)) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+    }
+
+    // enum 순서번호로 바로 다음 상태인지 확인
+    private void validateRouteStatusTransition(RouteStatus current, RouteStatus next) {
+        if (next.ordinal() != current.ordinal() + 1) {
+            throw new ApiException(ErrorResponseCode.INVALID_STATUS_TRANSITION);
+        }
+    }
+
+    // ROUTE_ARRIVED로 갈 때만 호출됨
+    private void validateCompleteRouteInput(UpdateRouteStatusRequest request) {
+        if (request.actualDistance() == null || request.actualDuration() == null) {
+            throw new ApiException(
+                    ErrorResponseCode.INVALID_REQUEST,
+                    "ROUTE_ARRIVED로 전이하려면 actualDistance/actualDuration이 필요합니다."
+            );
+        }
+
+        // null 체크만으로는 -1 같은 음수 실측값도 그대로 저장돼버려서(운행 기록 정합성 깨짐),
+        // 도착 처리 시점엔 두 값 다 0 이상인지도 같이 검증한다.
+        if (request.actualDistance() < 0 || request.actualDuration() < 0) {
+            throw new ApiException(
+                    ErrorResponseCode.INVALID_REQUEST,
+                    "actualDistance/actualDuration은 0 이상이어야 합니다."
+            );
         }
     }
 
