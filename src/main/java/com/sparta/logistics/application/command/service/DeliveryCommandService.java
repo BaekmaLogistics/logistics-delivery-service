@@ -190,6 +190,15 @@ public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeli
                     "ROUTE_ARRIVED로 전이하려면 actualDistance/actualDuration이 필요합니다."
             );
         }
+
+        // null 체크만으로는 -1 같은 음수 실측값도 그대로 저장돼버려서(운행 기록 정합성 깨짐),
+        // 도착 처리 시점엔 두 값 다 0 이상인지도 같이 검증한다.
+        if (request.actualDistance() < 0 || request.actualDuration() < 0) {
+            throw new ApiException(
+                    ErrorResponseCode.INVALID_REQUEST,
+                    "actualDistance/actualDuration은 0 이상이어야 합니다."
+            );
+        }
     }
 
     /**
