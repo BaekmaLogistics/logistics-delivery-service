@@ -233,3 +233,6 @@ gradle-app.setting
 !.env.example
 
 # End of https://www.toptal.com/developers/gitignore/api/java,gradle,visualstudiocode,intellij+all,eclipse
+
+# Claude
+CLAUDE.md
