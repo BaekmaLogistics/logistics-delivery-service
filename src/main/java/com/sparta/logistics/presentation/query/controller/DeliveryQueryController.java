@@ -11,6 +11,10 @@ import com.sparta.logistics.domain.model.DeliveryStatus;
 import com.sparta.logistics.presentation.common.constant.HeaderConstants;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,13 +54,17 @@ public class DeliveryQueryController {
     public ResponseEntity<GeneralResponse<DeliveryPageResponse>> getDeliveries(
             @RequestParam(required = false) DeliveryStatus status,
             @RequestParam(required = false) UUID hubId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            // size는 팀 공통 PageSizeLimitArgumentResolver가 10/30/50 외 값을 10으로 보정해줌.
+            // page 음수 등 나머지는 Spring 기본 Pageable 파싱이 처리(음수는 0으로 보정, 크래시 없음).
+            // @ParameterObject: springdoc이 Pageable을 하나의 JSON 객체가 아니라 page/size/sort
+            // 개별 쿼리 파라미터로 풀어서 Swagger에 보여주게 함(Swagger에 객체 하나로 뭉쳐 보임).
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestHeader(HeaderConstants.USER_ID) UUID currentUserId,
             @RequestHeader(HeaderConstants.USER_ROLE) UserRole role
     ) {
         DeliveryPageResponse response =
-                deliveryQueryUseCase.getDeliveries(status, hubId, page, size, currentUserId, role);
+                deliveryQueryUseCase.getDeliveries(status, hubId, pageable, currentUserId, role);
 
         return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
     }
