@@ -5,6 +5,7 @@ import com.sparta.logistics.application.command.dto.DeliveryResponse;
 import com.sparta.logistics.application.command.dto.UpdateDeliveryStatusRequest;
 import com.sparta.logistics.application.command.dto.UpdateRouteStatusRequest;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
+import com.sparta.logistics.application.command.usecase.DeleteDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.UpdateDeliveryStatusUseCase;
 import com.sparta.logistics.application.command.usecase.UpdateRouteStatusUseCase;
 import com.sparta.logistics.application.query.dto.RouteResponse;
@@ -35,7 +36,8 @@ import java.util.stream.IntStream;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeliveryStatusUseCase, UpdateRouteStatusUseCase {
+public class DeliveryCommandService implements
+        CreateDeliveryUseCase, UpdateDeliveryStatusUseCase, UpdateRouteStatusUseCase, DeleteDeliveryUseCase {
 
     private final DeliveryRepository deliveryRepository;
     private final HubFeignClient hubFeignClient;
@@ -198,6 +200,35 @@ public class DeliveryCommandService implements CreateDeliveryUseCase, UpdateDeli
                     ErrorResponseCode.INVALID_REQUEST,
                     "actualDistance/actualDuration은 0 이상이어야 합니다."
             );
+        }
+    }
+
+    /**
+     * 배송을 논리 삭제한다. 물리 삭제가 아니라 deletedAt/deletedBy만 채운다(BaseUpdatableEntity.softDelete).
+     * 딸린 구간(route)들도 같은 트랜잭션 안에서 전부 논리 삭제 처리한다 - 배송이 지워졌는데
+     * 구간만 살아있으면 조회 결과가 뒤죽박죽되니까.
+     * 권한 : 원본 스펙(배송 관리 - 삭제) 기준 MASTER/HUB_MANAGER(임시 무제한, TODO: 담당 허브 제한)만 가능,
+     * DELIVERY_DRIVER/COMPANY_MANAGER는 불가.
+     */
+    @Override
+    public void deleteDelivery(UUID deliveryId, UUID currentUserId, UserRole role) {
+        // 이미 삭제된 배송을 또 삭제하려고 하면 자동으로 404
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        // 권한 체크
+        // 체담당자/배송담당자는 삭제 자체가 금지 -> 403
+        validateDeleteAccess(role);
+
+        // BaseUpdatableEntity에 이미 있던 메서드로 deletedAt/deletedBy만 채움
+        delivery.softDelete(currentUserId);
+        // 딸린 구간(route)들도 전부 softDelete()
+        delivery.getRoutes().forEach(route -> route.softDelete(currentUserId));
+    }
+
+    private void validateDeleteAccess(UserRole role) {
+        if (role == UserRole.DELIVERY_DRIVER || role == UserRole.COMPANY_MANAGER) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
         }
     }
 
