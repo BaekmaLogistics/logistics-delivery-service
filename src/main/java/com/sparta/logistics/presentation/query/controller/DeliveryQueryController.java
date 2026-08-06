@@ -2,7 +2,9 @@ package com.sparta.logistics.presentation.query.controller;
 
 import com.sparta.logistics.application.query.dto.DeliveryDetailResponse;
 import com.sparta.logistics.application.query.dto.DeliveryPageResponse;
+import com.sparta.logistics.application.query.dto.RouteResponse;
 import com.sparta.logistics.application.query.usecase.DeliveryQueryUseCase;
+import com.sparta.logistics.application.query.usecase.RouteQueryUseCase;
 import com.sparta.logistics.common.code.GeneralResponseCode;
 import com.sparta.logistics.common.constant.UserRole;
 import com.sparta.logistics.domain.model.DeliveryStatus;
@@ -17,10 +19,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * 배송 조회(상세 + 목록 검색) API 컨트롤러.
+ * 배송 조회(상세 + 목록 검색 + 구간 목록) API 컨트롤러.
  * Gateway가 인증을 마친 뒤 X-User-Id / X-User-Role 헤더로 요청자 정보를 내려준다는 전제.
  */
 @RestController
@@ -29,6 +32,7 @@ import java.util.UUID;
 public class DeliveryQueryController {
 
     private final DeliveryQueryUseCase deliveryQueryUseCase;
+    private final RouteQueryUseCase routeQueryUseCase;
 
     @GetMapping("/{deliveryId}")
     public ResponseEntity<GeneralResponse<DeliveryDetailResponse>> getDeliveryDetail(
@@ -53,6 +57,17 @@ public class DeliveryQueryController {
     ) {
         DeliveryPageResponse response =
                 deliveryQueryUseCase.getDeliveries(status, hubId, page, size, currentUserId, role);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
+    }
+
+    @GetMapping("/{deliveryId}/routes")
+    public ResponseEntity<GeneralResponse<List<RouteResponse>>> getRoutes(
+            @PathVariable UUID deliveryId,
+            @RequestHeader(HeaderConstants.USER_ID) UUID currentUserId,
+            @RequestHeader(HeaderConstants.USER_ROLE) UserRole role
+    ) {
+        List<RouteResponse> response = routeQueryUseCase.getRoutes(deliveryId, currentUserId, role);
 
         return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
     }
