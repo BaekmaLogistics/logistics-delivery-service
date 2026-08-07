@@ -1,9 +1,11 @@
 package com.sparta.logistics.application.command.service;
 
+import com.sparta.logistics.application.command.dto.CancelDeliveryRequest;
 import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
 import com.sparta.logistics.application.command.dto.UpdateDeliveryStatusRequest;
 import com.sparta.logistics.application.command.dto.UpdateRouteStatusRequest;
+import com.sparta.logistics.application.command.usecase.CancelDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.DeleteDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.UpdateDeliveryStatusUseCase;
@@ -37,7 +39,8 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 @Transactional
 public class DeliveryCommandService implements
-        CreateDeliveryUseCase, UpdateDeliveryStatusUseCase, UpdateRouteStatusUseCase, DeleteDeliveryUseCase {
+        CreateDeliveryUseCase, UpdateDeliveryStatusUseCase, UpdateRouteStatusUseCase, DeleteDeliveryUseCase,
+        CancelDeliveryUseCase {
 
     private final DeliveryRepository deliveryRepository;
     private final HubFeignClient hubFeignClient;
@@ -229,6 +232,37 @@ public class DeliveryCommandService implements
     private void validateDeleteAccess(UserRole role) {
         if (role == UserRole.DELIVERY_DRIVER || role == UserRole.COMPANY_MANAGER) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+    }
+
+    /**
+     * 배송을 취소(논리 삭제)한다 (internal 전용, Order 서비스가 주문 취소 시 호출).
+     * DELIVERY_DRIVER/COMPANY_MANAGER 같은 역할 기반 권한 체크는 없다 - 로그인 사용자가 아니라
+     * 서버 대 서버 호출이라 애초에 role 헤더 자체가 없기 때문. 대신 deliveryId가 정말
+     * request.orderId() 소속인지만 검증한다.
+     * 삭제 로직 자체는 deleteDelivery()와 동일(softDelete + routes cascade)하지만, 호출 주체와
+     * 검증 내용이 달라서 별도 UseCase로 분리했다.
+     */
+    @Override
+    public void cancelDelivery(UUID deliveryId, CancelDeliveryRequest request) {
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        validateOrderOwnership(delivery, request.orderId());
+
+        // 로그인 사용자가 아니라 시스템(Order 서비스)이 취소하는 것이므로 deletedBy는 null로 둔다.
+        // JpaAuditingConfig의 AuditorAware도 X-User-Id 헤더가 없으면 createdBy/updatedBy를
+        // null로 남기는 것과 동일한 방식 - 팀 컨벤션(시스템 처리 시 null)에 맞춤.
+        delivery.softDelete(null);
+        delivery.getRoutes().forEach(route -> route.softDelete(null));
+    }
+
+    // 다른 주문의 deliveryId로 잘못 취소 요청이 오는 걸 막는 안전장치
+    // path의 deliveryId로 조회한 배송의 orderId(DB에 저장된 진짜 소속 주문)랑,
+    // request body로 넘어온 orderId가 같은지 대조
+    private void validateOrderOwnership(Delivery delivery, UUID orderId) {
+        if (!delivery.getOrderId().equals(orderId)) {
+            throw new ApiException(ErrorResponseCode.INVALID_REQUEST, "deliveryId에 해당하는 주문이 아닙니다.");
         }
     }
 

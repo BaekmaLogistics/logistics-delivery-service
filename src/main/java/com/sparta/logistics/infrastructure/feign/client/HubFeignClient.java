@@ -21,7 +21,7 @@ public interface HubFeignClient {
     /**
      * 허브 간 최적 경로 조회. 경유 허브 순서 + 전체 거리/시간만 내려온다.
      */
-    @GetMapping("/api/v1/hub-routes/shortest")
+    @GetMapping("/internal/api/v1/hub-routes/shortest")
     GeneralResponse<HubShortestRouteResponse> getShortestRoute(
             @RequestParam("fromHubId") UUID fromHubId,
             @RequestParam("toHubId") UUID toHubId
@@ -30,7 +30,7 @@ public interface HubFeignClient {
     /**
      * 허브 연결(직통 구간) 목록 조회. fromHubId+toHubId를 모두 넘기면 해당 구간 1건만 조회됨.
      */
-    @GetMapping("/api/v1/hub-routes")
+    @GetMapping("/internal/api/v1/hub-routes")
     GeneralResponse<HubRoutePageResponse> getHubRoutes(
             @RequestParam("fromHubId") UUID fromHubId,
             @RequestParam("toHubId") UUID toHubId
