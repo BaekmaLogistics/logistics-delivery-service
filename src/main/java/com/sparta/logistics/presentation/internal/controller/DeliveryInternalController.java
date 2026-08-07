@@ -1,0 +1,37 @@
+package com.sparta.logistics.presentation.internal.controller;
+
+import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
+import com.sparta.logistics.application.command.dto.DeliveryResponse;
+import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
+import com.sparta.logistics.common.code.GeneralResponseCode;
+import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Order 서비스가 서버 대 서버로 호출하는 internal 전용 API 컨트롤러.
+ * 팀 컨벤션에 따라 /internal/api/v1/ 프리픽스를 쓰고, Gateway가 /internal/** 요청을
+ * 외부망에서 전부 403 처리하므로 여기서는 로그인 사용자 헤더(X-User-Id/X-User-Role)나
+ * 역할 기반 권한 체크를 하지 않는다 (내부망 격리로 대체 - 팀 튜터님 확인 완료).
+ */
+@RestController
+@RequestMapping("/internal/api/v1/deliveries")
+@RequiredArgsConstructor
+public class DeliveryInternalController {
+
+    private final CreateDeliveryUseCase createDeliveryUseCase;
+
+    @PostMapping
+    public ResponseEntity<GeneralResponse<DeliveryResponse>> createDelivery(
+            @Valid @RequestBody CreateDeliveryRequest request
+    ) {
+        DeliveryResponse response = createDeliveryUseCase.createDelivery(request);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.CREATED, response);
+    }
+}
