@@ -2,6 +2,7 @@ package com.sparta.logistics.application.query.service;
 
 import com.sparta.logistics.application.query.dto.DeliveryDetailResponse;
 import com.sparta.logistics.application.query.dto.DeliveryPageResponse;
+import com.sparta.logistics.application.query.dto.DeliveryStatusResponse;
 import com.sparta.logistics.application.query.usecase.DeliveryQueryUseCase;
 import com.sparta.logistics.common.code.ErrorResponseCode;
 import com.sparta.logistics.common.constant.UserRole;
@@ -51,6 +52,18 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
         Page<Delivery> result = deliveryRepository.search(status, hubId, currentUserId, role, pageable);
 
         return DeliveryPageResponse.from(result);
+    }
+
+    /**
+     * 배송 진행 상태만 가볍게 확인한다 (internal 전용).
+     * Order 서비스가 서버 대 서버로 호출하므로 로그인 사용자 헤더/역할 기반 권한 체크를 하지 않는다.
+     */
+    @Override
+    public DeliveryStatusResponse getDeliveryStatus(UUID deliveryId) {
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        return DeliveryStatusResponse.from(delivery);
     }
 
     /**
