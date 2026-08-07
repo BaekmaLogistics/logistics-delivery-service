@@ -5,11 +5,14 @@ import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
 import com.sparta.logistics.application.command.usecase.CancelDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
+import com.sparta.logistics.application.query.dto.DeliveryStatusResponse;
+import com.sparta.logistics.application.query.usecase.DeliveryQueryUseCase;
 import com.sparta.logistics.common.code.GeneralResponseCode;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +35,7 @@ public class DeliveryInternalController {
 
     private final CreateDeliveryUseCase createDeliveryUseCase;
     private final CancelDeliveryUseCase cancelDeliveryUseCase;
+    private final DeliveryQueryUseCase deliveryQueryUseCase;
 
     @PostMapping
     public ResponseEntity<GeneralResponse<DeliveryResponse>> createDelivery(
@@ -51,5 +55,15 @@ public class DeliveryInternalController {
         cancelDeliveryUseCase.cancelDelivery(deliveryId, request);
 
         return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, null);
+    }
+
+    // 배송 상태 확인
+    @GetMapping("/{deliveryId}/status")
+    public ResponseEntity<GeneralResponse<DeliveryStatusResponse>> getDeliveryStatus(
+            @PathVariable UUID deliveryId
+    ) {
+        DeliveryStatusResponse response = deliveryQueryUseCase.getDeliveryStatus(deliveryId);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
     }
 }
