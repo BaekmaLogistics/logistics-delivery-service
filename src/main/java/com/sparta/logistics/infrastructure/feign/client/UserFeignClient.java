@@ -18,7 +18,7 @@ public interface UserFeignClient {
     /**
      * 배송 담당자 목록 검색. deliveryType + hubId로 필터링해서 조회한다.
      */
-    @GetMapping("/api/v1/delivery-managers")
+    @GetMapping("/internal/api/v1/delivery-managers")
     GeneralResponse<DeliveryManagerPageResponse> getDeliveryManagers(
             @RequestParam("deliveryType") String deliveryType,
             @RequestParam("hubId") UUID hubId
