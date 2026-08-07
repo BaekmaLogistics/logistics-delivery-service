@@ -1,17 +1,23 @@
 package com.sparta.logistics.presentation.internal.controller;
 
+import com.sparta.logistics.application.command.dto.CancelDeliveryRequest;
 import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
+import com.sparta.logistics.application.command.usecase.CancelDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
 import com.sparta.logistics.common.code.GeneralResponseCode;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 /**
  * Order 서비스가 서버 대 서버로 호출하는 internal 전용 API 컨트롤러.
@@ -25,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeliveryInternalController {
 
     private final CreateDeliveryUseCase createDeliveryUseCase;
+    private final CancelDeliveryUseCase cancelDeliveryUseCase;
 
     @PostMapping
     public ResponseEntity<GeneralResponse<DeliveryResponse>> createDelivery(
@@ -33,5 +40,16 @@ public class DeliveryInternalController {
         DeliveryResponse response = createDeliveryUseCase.createDelivery(request);
 
         return GeneralResponse.toResponseEntity(GeneralResponseCode.CREATED, response);
+    }
+
+    // 주문 취소에 따른 배송 취소
+    @PatchMapping("/{deliveryId}/cancel")
+    public ResponseEntity<GeneralResponse<Void>> cancelDelivery(
+            @PathVariable UUID deliveryId,
+            @Valid @RequestBody CancelDeliveryRequest request
+    ) {
+        cancelDeliveryUseCase.cancelDelivery(deliveryId, request);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, null);
     }
 }
