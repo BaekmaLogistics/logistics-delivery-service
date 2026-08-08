@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,11 +32,10 @@ public class OutboxRelay {
     // 메서드를 주기적으로 실행
     @Scheduled(fixedDelayString = "${outbox.relay.fixed-delay:3000}")
     @Transactional
-    // PENDING 레코드를 최대 50개 가져와서 하나씩 publish() 호출
+    // PENDING 레코드를 최대 50개, FOR UPDATE SKIP LOCKED로 잠근 채 가져와서 하나씩 publish() 호출.
+    // 인스턴스가 여러 개 떠 있어도 이미 다른 인스턴스가 잠근 행은 건너뛰기 때문에 중복 발행이 없다.
     public void relay() {
-        List<OutboxEvent> pendingEvents = outboxEventRepository.findByStatusOrderByCreatedAtAsc(
-                OutboxStatus.PENDING, PageRequest.of(0, BATCH_SIZE)
-        );
+        List<OutboxEvent> pendingEvents = outboxEventRepository.findPendingForUpdateSkipLocked(BATCH_SIZE);
 
         pendingEvents.forEach(this::publish);
         // 트랜잭션 안에서 영속 상태 엔티티들이라 markPublished()/markFailed()로 바뀐 상태가
