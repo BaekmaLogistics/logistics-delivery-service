@@ -47,6 +47,10 @@ message:
     hub: hub.queue
     notification: notification.queue
 
+outbox:
+  relay:
+    fixed-delay: 3000 # OutboxRelay가 PENDING 레코드를 폴링하는 주기(ms)
+
 eureka:
   client:
     service-url:
