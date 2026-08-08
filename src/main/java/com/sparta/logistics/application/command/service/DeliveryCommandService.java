@@ -23,6 +23,7 @@ import com.sparta.logistics.infrastructure.feign.constant.DeliveryManagerType;
 import com.sparta.logistics.infrastructure.feign.dto.DeliveryManagerPageResponse;
 import com.sparta.logistics.infrastructure.feign.dto.HubRoutePageResponse;
 import com.sparta.logistics.infrastructure.feign.dto.HubShortestRouteResponse;
+import com.sparta.logistics.infrastructure.messaging.producer.DeliveryEventPublisher;
 import com.sparta.logistics.infrastructure.feign.service.HubRouteQueryService;
 import com.sparta.logistics.common.code.ErrorResponseCode;
 import com.sparta.logistics.common.exception.ApiException;
@@ -47,6 +48,7 @@ public class DeliveryCommandService implements
     private final HubRouteQueryService hubRouteQueryService;
     private final UserFeignClient userFeignClient;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final DeliveryEventPublisher deliveryEventPublisher;
 
     @Override
     public DeliveryResponse createDelivery(CreateDeliveryRequest request) {
@@ -82,6 +84,7 @@ public class DeliveryCommandService implements
      *   건이 아니면 FORBIDDEN. MASTER/HUB_MANAGER(임시 무제한, TODO: 담당 허브로 제한)는 통과.
      * - 상태 전이 : 현재 상태의 "바로 다음" 상태만 허용(enum ordinal 기준). 건너뛰거나 역행하면
      *   INVALID_STATUS_TRANSITION. DELIVERED(마지막 상태)에서는 그 다음이 없으므로 항상 거부된다.
+     * - 상태 변경에 성공하면 notification.queue로 이벤트를 발행해서 슬랙 알림이 나가도록 한다.
      */
     @Override
     public DeliveryResponse updateStatus(
@@ -100,6 +103,10 @@ public class DeliveryCommandService implements
         validateStatusTransition(delivery.getStatus(), request.status());
 
         delivery.changeStatus(request.status());
+
+        // 상태가 바뀌었다는 이벤트를 notification.queue로 발행 (Notification이 슬랙 알림 발송)
+        // REST 응답/DB 반영 로직은 그대로, 이벤트 발행은 부수 효과로 추가
+        deliveryEventPublisher.publishStatusChanged(delivery, currentUserId);
 
         // 트랜잭션 안에서 영속 상태인 엔티티라 save() 호출 없이도 커밋 시 변경분이 반영된다(더티체킹).
         return DeliveryResponse.from(delivery);
