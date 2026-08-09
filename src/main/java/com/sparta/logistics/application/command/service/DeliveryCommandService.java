@@ -326,11 +326,13 @@ public class DeliveryCommandService implements
 
         List<HubShortestRouteResponse.Segment> segments = shortestRoute.segments();
 
-        // fromHubId/toHubId가 null인 구간이 하나라도 있는지 검사.
-        // 이걸 먼저 걸러야 아래 체인 검사(.toHubId().equals(...))에서 null에 대고
-        // equals()를 호출하다 NPE가 나는 걸 막을 수 있다.
+        // segment 자체가 null이거나, fromHubId/toHubId가 null인 구간이 하나라도 있는지 검사.
+        // segment == null 체크를 가장 먼저 해야 segment.fromHubId() 호출 자체에서
+        // NPE가 나는 걸 막을 수 있고, 이걸 먼저 걸러야 아래 체인 검사(.toHubId().equals(...))도 안전해진다.
         boolean hasInvalidHubId = segments.stream()
-                .anyMatch(segment -> segment.fromHubId() == null || segment.toHubId() == null);
+                .anyMatch(segment -> segment == null
+                        || segment.fromHubId() == null
+                        || segment.toHubId() == null);
 
         if (hasInvalidHubId) {
             throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);
