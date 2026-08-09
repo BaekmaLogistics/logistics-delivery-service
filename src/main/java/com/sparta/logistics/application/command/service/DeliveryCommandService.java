@@ -21,9 +21,7 @@ import com.sparta.logistics.infrastructure.feign.client.HubFeignClient;
 import com.sparta.logistics.infrastructure.feign.client.UserFeignClient;
 import com.sparta.logistics.infrastructure.feign.constant.DeliveryManagerType;
 import com.sparta.logistics.infrastructure.feign.dto.DeliveryManagerPageResponse;
-import com.sparta.logistics.infrastructure.feign.dto.HubRoutePageResponse;
 import com.sparta.logistics.infrastructure.feign.dto.HubShortestRouteResponse;
-import com.sparta.logistics.infrastructure.feign.service.HubRouteQueryService;
 import com.sparta.logistics.common.code.ErrorResponseCode;
 import com.sparta.logistics.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +42,6 @@ public class DeliveryCommandService implements
 
     private final DeliveryRepository deliveryRepository;
     private final HubFeignClient hubFeignClient;
-    private final HubRouteQueryService hubRouteQueryService;
     private final UserFeignClient userFeignClient;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -267,47 +264,38 @@ public class DeliveryCommandService implements
     }
 
     /**
-     * Hub 서비스에 최적 경로를 물어본 뒤(경유 허브 순서), 연속된 두 허브씩 짝지어서
-     * 구간별 거리/시간을 조회하고 DeliveryRoute 목록을 만든다.
+     * Hub 서비스에 최적 경로를 물어보면 구간별(허브-허브 사이) 거리/시간까지 한 번에 내려온다.
+     * 그 segments를 그대로 DeliveryRoute로 매핑하기만 하면 되므로, 예전처럼 구간마다
+     * Hub한테 따로 또 물어볼 필요가 없다.
      */
     private List<DeliveryRoute> buildRoutes(UUID departureHubId, UUID destinationHubId) {
-        // Hub한테 출발허브에서 도착허브까지 최적경로가 뭔지 물어봄.
+        // Hub한테 출발허브에서 도착허브까지 최적경로(구간별 거리/시간 포함)를 물어봄.
         HubShortestRouteResponse shortestRoute =
                 hubFeignClient.getShortestRoute(departureHubId, destinationHubId).data();
 
         // Hub 응답을 신뢰하지 않고 그대로 검증한다.
-        // - data/routes가 null이거나 구간을 못 만들 만큼(0~1개) waypoint가 적으면
-        //   기존 코드는 조용히 빈 route 목록을 만들어 저장까지 성공해버렸음(데이터 정합성 문제).
+        // - data/segments가 null이거나 비어있으면 기존 코드는 조용히 빈 route 목록을
+        //   만들어 저장까지 성공해버렸음(데이터 정합성 문제).
         // - Hub가 요청한 출발/도착 허브와 다른 경로를 내려주는 경우도 검증한다.
         validateShortestRoute(shortestRoute, departureHubId, destinationHubId);
 
-        List<HubShortestRouteResponse.HubWaypoint> waypoints = shortestRoute.routes();
+        List<HubShortestRouteResponse.Segment> segments = shortestRoute.segments();
 
-        // 허브가 3개(서울, 대전, 부산)면 구간은 2개(서울→대전, 대전→부산).
-        // 그래서 인덱스를 0부터 허브개수-2까지(waypoints.size()-1개) 돌림.
-        // i=0일 때 (서울,대전), i=1일 때 (대전,부산) 이런 식으로 짝지어짐.
-        return IntStream.range(0, waypoints.size() - 1)
+        return IntStream.range(0, segments.size())
                 // IntStream(정수 스트림)을 Stream<DeliveryRoute>(객체 스트림)로 변환
                 .mapToObj(i -> {
-                    // 연속된 두 허브를 뽑아냄 (구간의 출발/도착)
-                    UUID fromHubId = waypoints.get(i).hubId();
-                    UUID toHubId = waypoints.get(i + 1).hubId();
+                    HubShortestRouteResponse.Segment segment = segments.get(i);
                     int sequence = i + 1; // 이해하기 쉽게 1부터 시작
 
-                    // 캐싱 래퍼를 호출 -> 이 구간의 실제 거리/시간을 받아옴
-                    // 캐시에 있으면 Redis에서, 없으면 Hub 서비스 호출 후 캐시에 저장
-                    HubRoutePageResponse.HubRouteItem hubRoute =
-                            hubRouteQueryService.getHubRoute(fromHubId, toHubId);
-
                     // 이 구간을 담당할 기사를 정함
-                    UUID segmentDriverId = assignHubDriver(fromHubId);
+                    UUID segmentDriverId = assignHubDriver(segment.fromHubId());
 
                     return DeliveryRoute.create(
                             sequence,
-                            fromHubId,
-                            toHubId,
-                            hubRoute.distance(),
-                            hubRoute.duration(),
+                            segment.fromHubId(),
+                            segment.toHubId(),
+                            segment.distance(),
+                            segment.duration(),
                             segmentDriverId
                     );
                 })
@@ -317,9 +305,10 @@ public class DeliveryCommandService implements
 
     /**
      * Hub 서비스의 "최단 경로 조회" 응답이 실제로 신뢰할 수 있는 데이터인지 검증한다.
-     * - data 자체가 없거나(요청 실패), 경유 허브 목록이 없거나, 구간을 하나도 못 만들 만큼
-     *   (0~1개) waypoint가 적으면 즉시 예외로 중단한다. (검증 없이는 route 0개인 Delivery가 조용히 저장됨)
-     * - waypoint 중 hubId가 비어있거나, 첫/마지막 허브가 요청한 출발/도착 허브와 다르면
+     * - data 자체가 없거나(요청 실패), 구간 목록(segments)이 없거나 비어있으면 즉시 예외로
+     *   중단한다. (검증 없이는 route 0개인 Delivery가 조용히 저장됨)
+     * - 구간에 hubId가 비어있거나, 첫 구간의 출발허브/마지막 구간의 도착허브가 요청한
+     *   출발/도착 허브와 다르거나, 구간끼리 서로 안 이어지면(A→B, C→D처럼 끊기면)
      *   Hub가 엉뚱한 경로를 내려준 것이므로 마찬가지로 중단한다.
      */
     private void validateShortestRoute(
@@ -327,31 +316,39 @@ public class DeliveryCommandService implements
             UUID departureHubId,
             UUID destinationHubId
     ) {
-        // 필드 자체가 비어있거나, routes 필드(경유 허브 목록)가 null이거나, 경유 허브가 0개나 1개인 경우
-        // 예외처리
-        // 참고 : 순서대로 작성해야 첫번째 조건에서 .routes()가 실행되지 않아 NPE가 나지않음
+        // 필드 자체가 비어있거나, segments 필드가 null이거나 비어있는 경우 예외처리
+        // 참고 : 순서대로 작성해야 첫번째 조건에서 .segments()가 실행되지 않아 NPE가 나지않음
         if (shortestRoute == null
-                || shortestRoute.routes() == null
-                || shortestRoute.routes().size() < 2) {
+                || shortestRoute.segments() == null
+                || shortestRoute.segments().isEmpty()) {
             throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);
         }
 
-        // waypoints가 최소 2개는 있음
-        List<HubShortestRouteResponse.HubWaypoint> waypoints = shortestRoute.routes();
+        List<HubShortestRouteResponse.Segment> segments = shortestRoute.segments();
 
-        // hubId가 null인 waypoint가 하나라도 있는지 검사
-        boolean hasInvalidHubId = waypoints.stream()
-                .anyMatch(waypoint -> waypoint.hubId() == null);
+        // segment 자체가 null이거나, fromHubId/toHubId가 null인 구간이 하나라도 있는지 검사.
+        // segment == null 체크를 가장 먼저 해야 segment.fromHubId() 호출 자체에서
+        // NPE가 나는 걸 막을 수 있고, 이걸 먼저 걸러야 아래 체인 검사(.toHubId().equals(...))도 안전해진다.
+        boolean hasInvalidHubId = segments.stream()
+                .anyMatch(segment -> segment == null
+                        || segment.fromHubId() == null
+                        || segment.toHubId() == null);
+
+        if (hasInvalidHubId) {
+            throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);
+        }
+
+        // 구간끼리 순서대로 이어지는지 검사 (i번째 구간의 toHubId == i+1번째 구간의 fromHubId)
+        boolean isChainBroken = IntStream.range(0, segments.size() - 1)
+                .anyMatch(i -> !segments.get(i).toHubId().equals(segments.get(i + 1).fromHubId()));
 
         // 각각 "실제 출발 허브"와 "실제 도착 허브"
-        UUID firstHubId = waypoints.get(0).hubId();
-        UUID lastHubId = waypoints.get(waypoints.size() - 1).hubId();
+        UUID firstHubId = segments.get(0).fromHubId();
+        UUID lastHubId = segments.get(segments.size() - 1).toHubId();
 
-        // hubId 없는 waypoint가 섞여있거나,
-        // 우리가 물어본 출발 허브랑, Hub가 준 경로의 첫 허브가 다르거나,
-        // 우리가 물어본 도착 허브랑, Hub가 준 경로의 끝 허브가 다른 경우
-        // 예외처리
-        if (hasInvalidHubId
+        // 구간 연결이 끊겨있거나, 우리가 물어본 출발 허브랑 Hub가 준 경로의 첫 허브가 다르거나,
+        // 우리가 물어본 도착 허브랑 Hub가 준 경로의 끝 허브가 다른 경우 예외처리
+        if (isChainBroken
                 || !departureHubId.equals(firstHubId)
                 || !destinationHubId.equals(lastHubId)) {
             throw new ApiException(ErrorResponseCode.HUB_ROUTE_NOT_FOUND);

@@ -1,6 +1,5 @@
 package com.sparta.logistics.infrastructure.feign.client;
 
-import com.sparta.logistics.infrastructure.feign.dto.HubRoutePageResponse;
 import com.sparta.logistics.infrastructure.feign.dto.HubShortestRouteResponse;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -19,19 +18,12 @@ import java.util.UUID;
 public interface HubFeignClient {
 
     /**
-     * 허브 간 최적 경로 조회. 경유 허브 순서 + 전체 거리/시간만 내려온다.
+     * 허브 간 최적 경로 조회. 경유 허브 순서 + 구간별/전체 거리·시간이 한 번에 내려온다.
+     * 예전엔 구간별 거리/시간을 알려면 /hub-routes를 구간마다 따로 호출해야 했는데,
+     * 지금은 이 응답 하나로 배송 구간(DeliveryRoute)을 전부 만들 수 있다.
      */
     @GetMapping("/internal/api/v1/hub-routes/shortest")
     GeneralResponse<HubShortestRouteResponse> getShortestRoute(
-            @RequestParam("fromHubId") UUID fromHubId,
-            @RequestParam("toHubId") UUID toHubId
-    );
-
-    /**
-     * 허브 연결(직통 구간) 목록 조회. fromHubId+toHubId를 모두 넘기면 해당 구간 1건만 조회됨.
-     */
-    @GetMapping("/internal/api/v1/hub-routes")
-    GeneralResponse<HubRoutePageResponse> getHubRoutes(
             @RequestParam("fromHubId") UUID fromHubId,
             @RequestParam("toHubId") UUID toHubId
     );
