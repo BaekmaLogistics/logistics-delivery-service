@@ -1,5 +1,6 @@
 package com.sparta.logistics;
 
+import com.sparta.logistics.infrastructure.feign.config.OpenFeignConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -7,7 +8,9 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableDiscoveryClient
-@EnableFeignClients
+@EnableFeignClients(
+        defaultConfiguration = OpenFeignConfig.class
+)
 @EnableScheduling // OutboxRelay의 @Scheduled 폴링에 필요
 @SpringBootApplication
 public class LogisticsApplication {
