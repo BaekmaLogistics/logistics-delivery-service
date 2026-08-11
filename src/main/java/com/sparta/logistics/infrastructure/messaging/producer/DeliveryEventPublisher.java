@@ -31,12 +31,13 @@ public class DeliveryEventPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
-    // QueueConfig가 큐를 바인딩할 때 쓴 것과 동일한 값(routing key = 큐 이름)이라
-    // 같은 프로퍼티 키를 그대로 재사용한다.
+    // QueueConfig가 notification.queue를 바인딩할 때 쓴 것과 동일한 routing key.
+    // (기존엔 큐 이름을 그대로 routing key로 썼는데, notification.queue가 여러 도메인
+    // 이벤트를 받게 되면서 이벤트 타입별 routing key로 바뀌었다.)
     @Value("${message.exchange}")
     private String exchange;
 
-    @Value("${message.queue.notification}")
+    @Value("${message.binding-key.notification.delivery-status-changed}")
     private String notificationRoutingKey;
 
     /**
