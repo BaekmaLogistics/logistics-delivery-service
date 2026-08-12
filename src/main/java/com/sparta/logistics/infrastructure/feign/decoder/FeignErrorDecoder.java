@@ -30,7 +30,7 @@ public class FeignErrorDecoder implements ErrorDecoder {
             );
         } catch (Exception e){
             return new FeignApiException(
-                    "COMMON_OO03",
+                    "COMMON_0003",
                     "Feign Client Error",
                     response.status()
             );

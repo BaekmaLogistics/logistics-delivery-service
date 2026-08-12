@@ -1,6 +1,7 @@
 package com.sparta.logistics.presentation.common.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.sparta.logistics.common.code.ErrorResponseCode;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Map;

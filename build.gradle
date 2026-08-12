@@ -34,9 +34,19 @@ dependencies {
 
     //OpenFeign
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'io.github.openfeign:feign-okhttp'
+    implementation 'io.github.openfeign:feign-micrometer'
 
-    // Service Discovery (Eureka) - 팀 컨벤션에 실제로 쓰는지 확인 필요
+    // Service Discovery (Eureka)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // Config Client (Config Server에서 공통 설정을 내려받기 위한 의존성)
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+
+    // Eureka 이름(name) 기반 FeignClient 호출 시 실제 인스턴스로 라우팅해주는 로드밸런서.
+    // 이게 없으면 @FeignClient(name="hub-service") 같은 이름 기반 호출이 런타임에 실패한다.
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 
     //QueryDSL
     implementation "com.querydsl:querydsl-jpa:5.1.0:jakarta"
@@ -70,10 +80,14 @@ dependencies {
     // RabbitMQ
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     testImplementation 'org.springframework.amqp:spring-rabbit-test'
+    testImplementation 'org.testcontainers:rabbitmq'
 
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // env 적용
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 }
 
 tasks.named('test') {
