@@ -1,11 +1,11 @@
-name: Test on main
+name: Test on dev
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ dev ]
 
 jobs:
-  build-test-main:
+  build-test-dev:
     if: ${{ !github.event.repository.is_template && github.repository != 'Baekmalogistics/your-template-repo-name' }}
     runs-on: ubuntu-latest
 
