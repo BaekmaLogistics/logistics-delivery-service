@@ -56,6 +56,7 @@ public class DeliveryCommandService implements
         // 부모 엔티티를 메모리상에 생성 (아직 DB엔 안 들어감, status는 자동으로 HUB_WAITING)
         Delivery delivery = Delivery.create(
                 request.orderId(),
+                request.companyId(),
                 request.departureHubId(),
                 request.destinationHubId(),
                 request.deliveryAddress(),
@@ -120,6 +121,21 @@ public class DeliveryCommandService implements
         if (role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId)) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
         }
+
+        // HUB_MANAGER는 담당 허브(출발/도착 둘 중 하나)가 걸린 배송만 수정 가능
+        if (role == UserRole.HUB_MANAGER && !isManagedHub(delivery.getDepartureHubId(), delivery.getDestinationHubId(), currentUserId)) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+    }
+
+    /**
+     * currentUserId(HUB_MANAGER)가 담당하는 허브가 fromHubId/toHubId 둘 중 하나와 일치하는지 확인한다.
+     * User&Auth 서비스에 단건 조회로 물어봐서 담당 허브 ID(hubId)를 받아온다.
+     */
+    private boolean isManagedHub(UUID fromHubId, UUID toHubId, UUID currentUserId) {
+        UUID managedHubId = userFeignClient.getUserInfo(currentUserId).data().hubId();
+
+        return fromHubId.equals(managedHubId) || toHubId.equals(managedHubId);
     }
 
     // 상태 전이 체크
@@ -183,6 +199,11 @@ public class DeliveryCommandService implements
         if (role == UserRole.DELIVERY_DRIVER && !route.getDriverId().equals(currentUserId)) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
         }
+
+        // HUB_MANAGER는 이 구간(fromHubId/toHubId)이 담당 허브를 지나는 경우만 수정 가능
+        if (role == UserRole.HUB_MANAGER && !isManagedHub(route.getFromHubId(), route.getToHubId(), currentUserId)) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
     }
 
     // enum 순서번호로 바로 다음 상태인지 확인
@@ -225,8 +246,8 @@ public class DeliveryCommandService implements
                 .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
 
         // 권한 체크
-        // 체담당자/배송담당자는 삭제 자체가 금지 -> 403
-        validateDeleteAccess(role);
+        // 업체담당자/배송담당자는 삭제 자체가 금지 -> 403, HUB_MANAGER는 담당 허브 건만 가능
+        validateDeleteAccess(delivery, currentUserId, role);
 
         // BaseUpdatableEntity에 이미 있던 메서드로 deletedAt/deletedBy만 채움
         delivery.softDelete(currentUserId);
@@ -234,8 +255,12 @@ public class DeliveryCommandService implements
         delivery.getRoutes().forEach(route -> route.softDelete(currentUserId));
     }
 
-    private void validateDeleteAccess(UserRole role) {
+    private void validateDeleteAccess(Delivery delivery, UUID currentUserId, UserRole role) {
         if (role == UserRole.DELIVERY_DRIVER || role == UserRole.COMPANY_MANAGER) {
+            throw new ApiException(ErrorResponseCode.FORBIDDEN);
+        }
+
+        if (role == UserRole.HUB_MANAGER && !isManagedHub(delivery.getDepartureHubId(), delivery.getDestinationHubId(), currentUserId)) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
         }
     }

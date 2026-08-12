@@ -35,6 +35,8 @@ public class DeliveryQueryRepositoryImpl implements DeliveryQueryRepository {
             UUID hubId,
             UUID currentUserId,
             UserRole role,
+            UUID scopeHubId,
+            UUID scopeCompanyId,
             Pageable pageable
     ) {
         // QDelivery, QDeliveryRoute는 직접 만든 게 아니라,
@@ -60,8 +62,20 @@ public class DeliveryQueryRepositoryImpl implements DeliveryQueryRepository {
             );
         }
 
-        // 역할별 "본인 담당" 제한.
-        // MASTER/HUB_MANAGER(담당 허브 확인 불가)/COMPANY_MANAGER(본인 주문건 확인 불가)는 임시 무제한.
+        // 역할별 "본인 담당" 제한. MASTER는 무제한.
+        // HUB_MANAGER : 담당 허브(scopeHubId)가 출발/도착 허브 둘 중 하나와 일치하는 건만
+        if (role == UserRole.HUB_MANAGER) {
+            builder.and(
+                    delivery.departureHubId.eq(scopeHubId)
+                            .or(delivery.destinationHubId.eq(scopeHubId))
+            );
+        }
+
+        // COMPANY_MANAGER : 소속 업체(scopeCompanyId)가 수령 업체(companyId)와 일치하는 건만
+        if (role == UserRole.COMPANY_MANAGER) {
+            builder.and(delivery.companyId.eq(scopeCompanyId));
+        }
+
         if (role == UserRole.DELIVERY_DRIVER) {
             // "본인이 담당하는 배송" = 전체 배송 담당(companyDriverId)이 나이거나,
             // 소속 구간(route) 중 하나라도 담당(driverId)이 나인 경우 - 원 요구사항(권한 표)의
