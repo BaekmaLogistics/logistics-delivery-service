@@ -5,8 +5,11 @@ import com.sparta.logistics.application.command.dto.CreateDeliveryRequest;
 import com.sparta.logistics.application.command.dto.DeliveryResponse;
 import com.sparta.logistics.application.command.usecase.CancelDeliveryUseCase;
 import com.sparta.logistics.application.command.usecase.CreateDeliveryUseCase;
+import com.sparta.logistics.application.query.dto.DeliveryDetailResponse;
 import com.sparta.logistics.application.query.dto.DeliveryStatusResponse;
+import com.sparta.logistics.application.query.dto.RouteResponse;
 import com.sparta.logistics.application.query.usecase.DeliveryQueryUseCase;
+import com.sparta.logistics.application.query.usecase.RouteQueryUseCase;
 import com.sparta.logistics.common.code.GeneralResponseCode;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import jakarta.validation.Valid;
@@ -20,10 +23,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Order 서비스가 서버 대 서버로 호출하는 internal 전용 API 컨트롤러.
+ * Order/Notification 서비스가 서버 대 서버로 호출하는 internal 전용 API 컨트롤러.
  * 팀 컨벤션에 따라 /internal/api/v1/ 프리픽스를 쓰고, Gateway가 /internal/** 요청을
  * 외부망에서 전부 403 처리하므로 여기서는 로그인 사용자 헤더(X-User-Id/X-User-Role)나
  * 역할 기반 권한 체크를 하지 않는다 (내부망 격리로 대체 - 팀 튜터님 확인 완료).
@@ -36,6 +40,7 @@ public class DeliveryInternalController {
     private final CreateDeliveryUseCase createDeliveryUseCase;
     private final CancelDeliveryUseCase cancelDeliveryUseCase;
     private final DeliveryQueryUseCase deliveryQueryUseCase;
+    private final RouteQueryUseCase routeQueryUseCase;
 
     @PostMapping
     public ResponseEntity<GeneralResponse<DeliveryResponse>> createDelivery(
@@ -63,6 +68,26 @@ public class DeliveryInternalController {
             @PathVariable UUID deliveryId
     ) {
         DeliveryStatusResponse response = deliveryQueryUseCase.getDeliveryStatus(deliveryId);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
+    }
+
+    // 배송 조회 (Notification이 슬랙 메시지 생성 시 호출)
+    @GetMapping("/{deliveryId}")
+    public ResponseEntity<GeneralResponse<DeliveryDetailResponse>> getDeliveryDetail(
+            @PathVariable UUID deliveryId
+    ) {
+        DeliveryDetailResponse response = deliveryQueryUseCase.getDeliveryDetailInternal(deliveryId);
+
+        return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
+    }
+
+    // 배송 Route 조회 (Notification이 슬랙 메시지 생성 시 호출)
+    @GetMapping("/{deliveryId}/routes")
+    public ResponseEntity<GeneralResponse<List<RouteResponse>>> getRoutes(
+            @PathVariable UUID deliveryId
+    ) {
+        List<RouteResponse> response = routeQueryUseCase.getRoutesInternal(deliveryId);
 
         return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, response);
     }

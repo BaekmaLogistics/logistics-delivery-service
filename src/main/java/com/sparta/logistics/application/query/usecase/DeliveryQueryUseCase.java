@@ -29,4 +29,10 @@ public interface DeliveryQueryUseCase {
     );
 
     DeliveryStatusResponse getDeliveryStatus(UUID deliveryId);
+
+    /**
+     * 배송 상세 조회 (internal 전용). Notification 서비스가 서버 대 서버로 호출하므로
+     * 로그인 사용자 헤더/역할 기반 권한 체크를 하지 않는다.
+     */
+    DeliveryDetailResponse getDeliveryDetailInternal(UUID deliveryId);
 }
