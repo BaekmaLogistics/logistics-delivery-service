@@ -67,6 +67,18 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
     }
 
     /**
+     * 배송 상세 조회 (internal 전용, Notification 서비스가 호출).
+     * getDeliveryStatus와 같은 이유로 권한 체크를 하지 않는다.
+     */
+    @Override
+    public DeliveryDetailResponse getDeliveryDetailInternal(UUID deliveryId) {
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        return DeliveryDetailResponse.from(delivery);
+    }
+
+    /**
      * 상세 조회 시 역할별 접근 권한을 확인한다.
      * - DELIVERY_DRIVER : 본인이 담당(Delivery.isAssignedTo)이 아니면 FORBIDDEN
      * - MASTER/HUB_MANAGER(임시)/COMPANY_MANAGER(임시) : 제한 없음

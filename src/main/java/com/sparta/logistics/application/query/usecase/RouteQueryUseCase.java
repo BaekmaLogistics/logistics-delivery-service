@@ -13,4 +13,10 @@ import java.util.UUID;
 public interface RouteQueryUseCase {
 
     List<RouteResponse> getRoutes(UUID deliveryId, UUID currentUserId, UserRole role);
+
+    /**
+     * 배송 구간 목록 조회 (internal 전용). Notification 서비스가 서버 대 서버로 호출하므로
+     * 로그인 사용자 헤더/역할 기반 권한 체크를 하지 않는다.
+     */
+    List<RouteResponse> getRoutesInternal(UUID deliveryId);
 }

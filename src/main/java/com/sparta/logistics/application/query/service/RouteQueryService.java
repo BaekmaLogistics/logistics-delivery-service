@@ -36,6 +36,20 @@ public class RouteQueryService implements RouteQueryUseCase {
                 .toList();
     }
 
+    /**
+     * 배송 구간 목록 조회 (internal 전용, Notification 서비스가 호출).
+     * getDeliveryStatus와 같은 이유로 권한 체크를 하지 않는다.
+     */
+    @Override
+    public List<RouteResponse> getRoutesInternal(UUID deliveryId) {
+        Delivery delivery = deliveryRepository.findByIdAndDeletedAtIsNull(deliveryId)
+                .orElseThrow(() -> new ApiException(ErrorResponseCode.DELIVERY_NOT_FOUND));
+
+        return delivery.getRoutes().stream()
+                .map(RouteResponse::from)
+                .toList();
+    }
+
     // 재사용
     private void validateAccess(Delivery delivery, UUID currentUserId, UserRole role) {
         boolean forbidden = role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId);
