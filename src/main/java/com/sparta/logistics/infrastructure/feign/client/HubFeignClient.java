@@ -1,5 +1,6 @@
 package com.sparta.logistics.infrastructure.feign.client;
 
+import com.sparta.logistics.infrastructure.feign.config.OpenFeignConfig;
 import com.sparta.logistics.infrastructure.feign.dto.HubShortestRouteResponse;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -14,7 +15,7 @@ import java.util.UUID;
  */
 // hub-service라는 이름으로 등록된 인스턴스 IP/포트를 Eureka에 물어보고
 // 그 주소로 실제 HTTP 요청 대신 보냄.
-@FeignClient(name = "hub-service")
+@FeignClient(name = "hub-service", configuration = OpenFeignConfig.class)
 public interface HubFeignClient {
 
     /**
