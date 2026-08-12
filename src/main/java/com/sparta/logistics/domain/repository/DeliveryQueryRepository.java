@@ -22,12 +22,16 @@ public interface DeliveryQueryRepository {
      * @param hubId         선택. null이면 허브 필터 없음, 있으면 출발/도착 허브 둘 중 하나라도 일치
      * @param currentUserId 요청자 ID (X-User-Id)
      * @param role          요청자 역할 (X-User-Role) - DELIVERY_DRIVER는 본인 담당 건만 조회됨
+     * @param scopeHubId    role이 HUB_MANAGER일 때 담당 허브 ID (User 단건조회로 미리 resolve해서 넘겨줌), 그 외 null
+     * @param scopeCompanyId role이 COMPANY_MANAGER일 때 소속 업체 ID (User 단건조회로 미리 resolve해서 넘겨줌), 그 외 null
      */
     Page<Delivery> search(
             DeliveryStatus status,
             UUID hubId,
             UUID currentUserId,
             UserRole role,
+            UUID scopeHubId,
+            UUID scopeCompanyId,
             Pageable pageable
     );
 }

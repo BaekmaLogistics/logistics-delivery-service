@@ -31,6 +31,10 @@ public class Delivery extends BaseUpdatableEntity {
     @Column(name = "order_id", nullable = false)
     private UUID orderId;
 
+    // 수령 업체 ID. Order가 배송 생성 요청 시 넘겨준다 - COMPANY_MANAGER 권한 스코프 체크(본인 업체 건인지)에 사용.
+    @Column(name = "company_id", nullable = false)
+    private UUID companyId;
+
     @Enumerated(EnumType.STRING) // enum을 문자열로 저장
     @Column(name = "status", nullable = false)
     private DeliveryStatus status;
@@ -66,6 +70,7 @@ public class Delivery extends BaseUpdatableEntity {
     // 배송은 무조건 HUB_WAITING 상태로 시작
     private Delivery(
             UUID orderId,
+            UUID companyId,
             UUID departureHubId,
             UUID destinationHubId,
             String deliveryAddress,
@@ -74,6 +79,7 @@ public class Delivery extends BaseUpdatableEntity {
             UUID companyDriverId
     ) {
         this.orderId = orderId;
+        this.companyId = companyId;
         this.status = DeliveryStatus.HUB_WAITING;
         this.departureHubId = departureHubId;
         this.destinationHubId = destinationHubId;
@@ -86,6 +92,7 @@ public class Delivery extends BaseUpdatableEntity {
     // create() 안에서 생성자 호출 : status = HUB_WAITING으로 자동 초기화
     public static Delivery create(
             UUID orderId,
+            UUID companyId,
             UUID departureHubId,
             UUID destinationHubId,
             String deliveryAddress,
@@ -95,6 +102,7 @@ public class Delivery extends BaseUpdatableEntity {
     ) {
         return new Delivery(
                 orderId,
+                companyId,
                 departureHubId,
                 destinationHubId,
                 deliveryAddress,

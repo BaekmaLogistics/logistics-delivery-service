@@ -10,6 +10,8 @@ import com.sparta.logistics.common.exception.ApiException;
 import com.sparta.logistics.domain.entity.Delivery;
 import com.sparta.logistics.domain.model.DeliveryStatus;
 import com.sparta.logistics.domain.repository.DeliveryRepository;
+import com.sparta.logistics.infrastructure.feign.client.UserFeignClient;
+import com.sparta.logistics.infrastructure.feign.dto.UserInfoResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +29,7 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
     // PageSizeLimitArgumentResolver + WebConfig(전역 등록)가 컨트롤러 진입 전에 이미 처리해준다.
     // 그래서 여기서 별도 검증 없이 넘어온 Pageable을 그대로 쓴다.
     private final DeliveryRepository deliveryRepository;
+    private final UserFeignClient userFeignClient;
 
     @Override
     public DeliveryDetailResponse getDeliveryDetail(UUID deliveryId, UUID currentUserId, UserRole role) {
@@ -49,7 +52,12 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
             UUID currentUserId,
             UserRole role
     ) {
-        Page<Delivery> result = deliveryRepository.search(status, hubId, currentUserId, role, pageable);
+        UserInfoResponse userInfo = resolveUserInfo(currentUserId, role);
+        UUID scopeHubId = userInfo != null ? userInfo.hubId() : null;
+        UUID scopeCompanyId = userInfo != null ? userInfo.companyId() : null;
+
+        Page<Delivery> result =
+                deliveryRepository.search(status, hubId, currentUserId, role, scopeHubId, scopeCompanyId, pageable);
 
         return DeliveryPageResponse.from(result);
     }
@@ -81,13 +89,38 @@ public class DeliveryQueryService implements DeliveryQueryUseCase {
     /**
      * 상세 조회 시 역할별 접근 권한을 확인한다.
      * - DELIVERY_DRIVER : 본인이 담당(Delivery.isAssignedTo)이 아니면 FORBIDDEN
-     * - MASTER/HUB_MANAGER(임시)/COMPANY_MANAGER(임시) : 제한 없음
+     * - HUB_MANAGER : 담당 허브(출발/도착 둘 중 하나)가 아니면 FORBIDDEN
+     * - COMPANY_MANAGER : 소속 업체(companyId)가 아니면 FORBIDDEN
+     * - MASTER : 제한 없음
      */
     private void validateAccess(Delivery delivery, UUID currentUserId, UserRole role) {
         boolean forbidden = role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId);
 
+        if (!forbidden && role == UserRole.HUB_MANAGER) {
+            UUID managedHubId = userFeignClient.getUserInfo(currentUserId).data().hubId();
+            forbidden = !delivery.getDepartureHubId().equals(managedHubId)
+                    && !delivery.getDestinationHubId().equals(managedHubId);
+        }
+
+        if (!forbidden && role == UserRole.COMPANY_MANAGER) {
+            UUID myCompanyId = userFeignClient.getUserInfo(currentUserId).data().companyId();
+            forbidden = !delivery.getCompanyId().equals(myCompanyId);
+        }
+
         if (forbidden) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);
         }
+    }
+
+    /**
+     * 목록 검색 시 HUB_MANAGER/COMPANY_MANAGER 스코프 필터에 쓸 값(담당 허브 ID/소속 업체 ID)을
+     * User&Auth 서비스 단건 조회로 미리 받아온다. 그 외 역할은 Feign 호출 없이 null을 반환한다.
+     */
+    private UserInfoResponse resolveUserInfo(UUID currentUserId, UserRole role) {
+        if (role != UserRole.HUB_MANAGER && role != UserRole.COMPANY_MANAGER) {
+            return null;
+        }
+
+        return userFeignClient.getUserInfo(currentUserId).data();
     }
 }
