@@ -1,0 +1,29 @@
+spring:
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://logistics-config-server:18081}"
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default: # 기본 구성 이름
+        registerHealthIndicator: true
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 20s
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+management:
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_SERVER:http://localhost:9411/api/v2/spans}
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
