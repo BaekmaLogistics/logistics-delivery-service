@@ -12,6 +12,7 @@ import com.sparta.logistics.application.query.usecase.DeliveryQueryUseCase;
 import com.sparta.logistics.application.query.usecase.RouteQueryUseCase;
 import com.sparta.logistics.common.code.GeneralResponseCode;
 import com.sparta.logistics.presentation.common.dto.response.GeneralResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +43,7 @@ public class DeliveryInternalController {
     private final DeliveryQueryUseCase deliveryQueryUseCase;
     private final RouteQueryUseCase routeQueryUseCase;
 
+    @SecurityRequirements // internal API - JWT 헤더 불필요 (Gateway가 /internal/** 외부 접근 차단)
     @PostMapping
     public ResponseEntity<GeneralResponse<DeliveryResponse>> createDelivery(
             @Valid @RequestBody CreateDeliveryRequest request
@@ -52,6 +54,7 @@ public class DeliveryInternalController {
     }
 
     // 주문 취소에 따른 배송 취소
+    @SecurityRequirements // internal API - JWT 헤더 불필요
     @PatchMapping("/{deliveryId}/cancel")
     public ResponseEntity<GeneralResponse<Void>> cancelDelivery(
             @PathVariable UUID deliveryId,
@@ -63,6 +66,7 @@ public class DeliveryInternalController {
     }
 
     // 배송 상태 확인
+    @SecurityRequirements // internal API - JWT 헤더 불필요
     @GetMapping("/{deliveryId}/status")
     public ResponseEntity<GeneralResponse<DeliveryStatusResponse>> getDeliveryStatus(
             @PathVariable UUID deliveryId
@@ -73,6 +77,7 @@ public class DeliveryInternalController {
     }
 
     // 배송 조회 (Notification이 슬랙 메시지 생성 시 호출)
+    @SecurityRequirements // internal API - JWT 헤더 불필요
     @GetMapping("/{deliveryId}")
     public ResponseEntity<GeneralResponse<DeliveryDetailResponse>> getDeliveryDetail(
             @PathVariable UUID deliveryId
@@ -83,6 +88,7 @@ public class DeliveryInternalController {
     }
 
     // 배송 Route 조회 (Notification이 슬랙 메시지 생성 시 호출)
+    @SecurityRequirements // internal API - JWT 헤더 불필요
     @GetMapping("/{deliveryId}/routes")
     public ResponseEntity<GeneralResponse<List<RouteResponse>>> getRoutes(
             @PathVariable UUID deliveryId

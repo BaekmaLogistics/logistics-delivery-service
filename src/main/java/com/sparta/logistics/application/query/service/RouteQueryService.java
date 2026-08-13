@@ -7,6 +7,7 @@ import com.sparta.logistics.common.constant.UserRole;
 import com.sparta.logistics.common.exception.ApiException;
 import com.sparta.logistics.domain.entity.Delivery;
 import com.sparta.logistics.domain.repository.DeliveryRepository;
+import com.sparta.logistics.infrastructure.feign.client.UserFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class RouteQueryService implements RouteQueryUseCase {
 
     private final DeliveryRepository deliveryRepository;
+    private final UserFeignClient userFeignClient;
 
     @Override
     public List<RouteResponse> getRoutes(UUID deliveryId, UUID currentUserId, UserRole role) {
@@ -50,9 +52,20 @@ public class RouteQueryService implements RouteQueryUseCase {
                 .toList();
     }
 
-    // 재사용
+    // DeliveryQueryService.validateAccess와 동일한 규칙 (상세조회를 볼 수 있으면 구간목록도 볼 수 있음)
     private void validateAccess(Delivery delivery, UUID currentUserId, UserRole role) {
         boolean forbidden = role == UserRole.DELIVERY_DRIVER && !delivery.isAssignedTo(currentUserId);
+
+        if (!forbidden && role == UserRole.HUB_MANAGER) {
+            UUID managedHubId = userFeignClient.getUserInfo(currentUserId).data().hubId();
+            forbidden = !delivery.getDepartureHubId().equals(managedHubId)
+                    && !delivery.getDestinationHubId().equals(managedHubId);
+        }
+
+        if (!forbidden && role == UserRole.COMPANY_MANAGER) {
+            UUID myCompanyId = userFeignClient.getUserInfo(currentUserId).data().companyId();
+            forbidden = !delivery.getCompanyId().equals(myCompanyId);
+        }
 
         if (forbidden) {
             throw new ApiException(ErrorResponseCode.FORBIDDEN);

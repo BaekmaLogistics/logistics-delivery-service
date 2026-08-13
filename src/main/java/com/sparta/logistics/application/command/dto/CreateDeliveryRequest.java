@@ -15,6 +15,9 @@ public record CreateDeliveryRequest(
         @NotNull(message = "주문 ID는 필수입니다.")
         UUID orderId,
 
+        @NotNull(message = "수령 업체 ID는 필수입니다.")
+        UUID companyId,
+
         @NotNull(message = "출발 허브 ID는 필수입니다.")
         UUID departureHubId,
 
